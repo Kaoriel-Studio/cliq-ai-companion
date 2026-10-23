@@ -1,6 +1,10 @@
 package com.cliq.plugin.history
 
+import com.cliq.plugin.CliqPlugin
 import com.cliq.plugin.settings.CliqSettings
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
@@ -12,16 +16,17 @@ import com.intellij.openapi.components.StoragePathMacros
     storages = [Storage(StoragePathMacros.WORKSPACE_FILE)],
 )
 @Service(Service.Level.PROJECT)
-class CliqPromptHistory : PersistentStateComponent<CliqPromptHistory.State> {
+class CliqPromptHistory(private val project: Project) : PersistentStateComponent<CliqPromptHistory.State> {
 
     class State {
         var entries: MutableList<PromptHistoryEntry> = mutableListOf()
     }
 
     companion object {
-        const val MAX_ENTRIES = 50
-        const val MAX_ENTRY_LENGTH = 8_192
-        const val TRUNCATION_MARKER = "… [truncated]"
+        const val MAX_ENTRIES = 10
+        const val MAX_ENTRY_LENGTH = 102_400
+        const val TRUNCATION_MARKER = "… [truncated by Cliq: the prompt exceeded 100 KB]"
+        private const val LEGACY_TRUNCATION_MARKER = "… [truncated]"
     }
 
     private val lock = Any()
@@ -39,6 +44,7 @@ class CliqPromptHistory : PersistentStateComponent<CliqPromptHistory.State> {
         val trimmed = text.trim()
         if (trimmed.isEmpty()) return
         val capped = truncate(trimmed)
+        if (capped.length != trimmed.length) notifyTruncated()
 
         synchronized(lock) {
             val updated = ArrayList<PromptHistoryEntry>(myState.entries.size + 1)
@@ -58,8 +64,19 @@ class CliqPromptHistory : PersistentStateComponent<CliqPromptHistory.State> {
     private fun truncate(text: String): String {
         if (text.length <= MAX_ENTRY_LENGTH) return text
         var cut = MAX_ENTRY_LENGTH
-        if (cut > 0 && Character.isHighSurrogate(text[cut - 1])) cut--
+        if (Character.isHighSurrogate(text[cut - 1])) cut--
         return text.take(cut) + TRUNCATION_MARKER
+    }
+
+    private fun notifyTruncated() {
+        NotificationGroupManager.getInstance()
+            .getNotificationGroup(CliqPlugin.NOTIFICATION_GROUP)
+            .createNotification(
+                "Prompt saved to history in truncated form",
+                "The prompt is longer than 100 KB, so only its first 100 KB were saved. Restoring it from history will not give the full text.",
+                NotificationType.WARNING,
+            )
+            .notify(project)
     }
 
     override fun getState(): State = synchronized(lock) {
@@ -67,6 +84,13 @@ class CliqPromptHistory : PersistentStateComponent<CliqPromptHistory.State> {
     }
 
     override fun loadState(state: State) {
-        synchronized(lock) { myState = state }
+        synchronized(lock) {
+            myState = State().apply {
+                entries = state.entries
+                    .filterNot { it.text.endsWith(LEGACY_TRUNCATION_MARKER) }
+                    .take(MAX_ENTRIES)
+                    .toMutableList()
+            }
+        }
     }
 }

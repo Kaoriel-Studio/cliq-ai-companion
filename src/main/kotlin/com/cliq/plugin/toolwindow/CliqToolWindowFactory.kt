@@ -12,6 +12,10 @@ import com.intellij.ui.content.ContentFactory
 
 class CliqToolWindowFactory : ToolWindowFactory, DumbAware {
 
+    private companion object {
+        const val GENERATE_COMMIT_MESSAGE_ACTION_ID = "com.cliq.plugin.GenerateCommitMessage"
+    }
+
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         val panel = CliqToolWindowPanel(project)
         val content = ContentFactory.getInstance().createContent(panel, "", false)
@@ -26,6 +30,7 @@ class CliqToolWindowFactory : ToolWindowFactory, DumbAware {
                     CliqSettings.getInstance().autoApplyChanges = state
                 }
             })
+            ActionManager.getInstance().getAction(GENERATE_COMMIT_MESSAGE_ACTION_ID)?.let(::add)
             addSeparator()
             add(object : AnAction("Cliq Settings…") {
                 override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT

@@ -74,7 +74,7 @@ internal object TerminalTyper {
     private fun writeTo(widget: JediTermWidget, text: String, execute: Boolean) {
         try {
             val starter = widget.terminalStarter ?: return
-            val payload = "\u001B[200~" + text + "\u001B[201~"
+            val payload = "\u001B[200~" + stripControlSequences(text) + "\u001B[201~"
             starter.sendString(payload, false)
 
             if (execute) {
@@ -87,6 +87,9 @@ internal object TerminalTyper {
             log.warn(e)
         }
     }
+
+    fun stripControlSequences(text: String): String =
+        text.filter { !it.isISOControl() || it == '\n' || it == '\t' }
 
     private fun findJediTermWidget(component: Component?, depth: Int = 0): JediTermWidget? {
         if (component == null || depth > 32) return null

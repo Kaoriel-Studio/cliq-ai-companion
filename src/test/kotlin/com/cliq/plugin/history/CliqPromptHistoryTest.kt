@@ -62,13 +62,31 @@ class CliqPromptHistoryTest : BasePlatformTestCase() {
         assertEquals(CliqPromptHistory.MAX_ENTRIES, history().entries().size)
     }
 
-    fun testTruncatesOversizedEntry() {
-        val huge = "x".repeat(CliqPromptHistory.MAX_ENTRY_LENGTH * 2)
-        history().record(huge)
+    fun testStoresLongPromptsInFull() {
+        val long = "x".repeat(CliqPromptHistory.MAX_ENTRY_LENGTH)
+        history().record(long)
 
-        val stored = history().entries()[0].text
-        assertTrue(stored.length < huge.length)
+        assertEquals(long, history().entries()[0].text)
+    }
+
+    fun testTruncatesPromptsOverTheLimitAndMarksThem() {
+        history().record("x".repeat(CliqPromptHistory.MAX_ENTRY_LENGTH + 1))
+
+        val stored = history().entries().single().text
+        assertEquals(CliqPromptHistory.MAX_ENTRY_LENGTH + CliqPromptHistory.TRUNCATION_MARKER.length, stored.length)
         assertTrue(stored.endsWith(CliqPromptHistory.TRUNCATION_MARKER))
+    }
+
+    fun testDropsLegacyTruncatedEntriesOnLoad() {
+        val state = CliqPromptHistory.State().apply {
+            entries = mutableListOf(
+                PromptHistoryEntry("cut off… [truncated]", 2),
+                PromptHistoryEntry("complete", 1),
+            )
+        }
+        history().loadState(state)
+
+        assertEquals(listOf("complete"), history().entries().map { it.text })
     }
 
     fun testRespectsDisabledSetting() {

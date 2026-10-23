@@ -1,0 +1,7 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <projectService
+            serviceInterface="com.cliq.plugin.review.git.LocalGitAccess"
+            serviceImplementation="com.cliq.plugin.review.git.Git4IdeaLocalGitAccess"/>
+    </extensions>
+</idea-plugin>

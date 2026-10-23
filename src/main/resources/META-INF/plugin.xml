@@ -14,6 +14,7 @@
     <depends>com.intellij.modules.platform</depends>
     <depends>org.jetbrains.plugins.terminal</depends>
     <depends optional="true" config-file="cliq-vcs.xml">com.intellij.modules.vcs</depends>
+    <depends optional="true" config-file="cliq-git.xml">Git4Idea</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <applicationConfigurable
@@ -21,6 +22,12 @@
             id="com.cliq.plugin.settings.CliqSettingsConfigurable"
             instance="com.cliq.plugin.settings.CliqSettingsConfigurable"
             displayName="Cliq"/>
+
+        <projectConfigurable
+            parentId="com.cliq.plugin.settings.CliqSettingsConfigurable"
+            id="com.cliq.plugin.review.settings.CliqReviewConfigurable"
+            instance="com.cliq.plugin.review.settings.CliqReviewConfigurable"
+            displayName="Code Review"/>
 
         <notificationGroup id="Cliq" displayType="BALLOON"/>
 
@@ -79,6 +86,15 @@
             text="Reject All Changes"
             description="Discard all of Cliq's proposed changes and close the review">
             <keyboard-shortcut keymap="$default" first-keystroke="alt BACK_SPACE"/>
+        </action>
+
+        <action
+            id="com.cliq.plugin.CollectReviewContext"
+            class="com.cliq.plugin.review.ui.CollectReviewContextAction"
+            text="Cliq: Collect Pull/Merge Request Context…"
+            description="Collect the diffs, files, CI status and discussions of a GitHub pull request or GitLab merge request and attach them to the Cliq context for review"
+            icon="AllIcons.Vcs.Merge">
+            <add-to-group group-id="ToolsMenu" anchor="after" relative-to-action="com.cliq.plugin.OpenSettings"/>
         </action>
 
         <action

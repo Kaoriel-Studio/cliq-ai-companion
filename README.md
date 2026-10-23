@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.1.0-01B43C.svg" />
+  <img src="https://img.shields.io/badge/version-1.0.0-01B43C.svg" />
   <img src="https://img.shields.io/badge/JetBrains%20Platform-2024.3%2B-000000.svg" />
   <img src="https://img.shields.io/badge/since--build-243-blue.svg" />
   <img src="https://img.shields.io/badge/Kotlin-2.1.0-7F52FF.svg" />
@@ -62,8 +62,11 @@ Cliq does not replace your agent or bundle a model. It adds the missing IDE inte
 - **Auto-apply mode**  
   Trusted autonomous runs can write changes directly without review.
 
+- **Pull / merge request review context (GitHub and GitLab)**  
+  Pick an open GitHub pull request or GitLab merge request (or type its number) and Cliq collects diffs, full files, related tests, CI status, failed job logs and discussions, splits them into token-budgeted chunks, and pins them to the Context panel with a ready-to-send review prompt. GitHub Enterprise and self-managed GitLab are supported. Configure hosts and tokens in `Settings → Tools → Cliq → Code Review`.
+
 - **No telemetry**  
-  No analytics, no external background requests, local-only communication.
+  No analytics and no background requests. Cliq contacts only the code review hosts you configure, and only when you collect review context.
 
 ---
 

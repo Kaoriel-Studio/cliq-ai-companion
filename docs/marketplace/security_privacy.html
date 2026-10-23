@@ -16,5 +16,8 @@
 <h3>No Hidden Tracking</h3>
 <p>Cliq does not send your source code to any external servers. Your code only goes to the CLI agent you have explicitly configured and launched. This includes diffs built for the <b>Generate Commit Message</b> action: the diff is only placed into the Cliq chat input, and is sent to an agent only when you explicitly choose to send it. Note that Cliq does not filter files by <code>.gitignore</code> — review what you attach as context before sending.</p>
 
+<h3>Code Review Host Access</h3>
+<p>GitHub and GitLab tokens are kept in the IDE password safe, one per configured host, and each token is sent only to the host it was configured for. Cliq asks before adding a host derived from a git remote and never follows HTTP redirects with a token; download links returned by GitHub for CI logs are fetched without any credentials. Requests are made only when you collect review context, and can bypass system and IDE proxies if you choose. Collected context never includes files that look like secrets (<code>.env</code> files, keys, certificates, credential stores), and text that looks like a token, private key or password literal is replaced with a <code>[REDACTED]</code> marker before it is written to disk.</p>
+
 <h3>Agent Secrets</h3>
 <p>Environment variables you configure for an agent (API keys and similar) are stored in the IDE's password safe rather than in plain-text settings, and are passed through the terminal session's environment instead of being prepended to the command line — so they never end up in your terminal scrollback or shell history.</p>

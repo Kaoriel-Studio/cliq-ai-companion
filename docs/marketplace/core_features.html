@@ -32,5 +32,14 @@
 <h3>Pending Changes Review Queue</h3>
 <p>Large, multi-file refactors no longer mean reviewing diffs one at a time. The <b>Pending Changes</b> panel in the Cliq tool window lists every diff currently open from an agent session, so you can jump into any file, or click <b>Accept All</b> / <b>Reject All</b> to resolve the whole batch at once — with a confirmation step before anything is discarded.</p>
 
+<h3>Pull and Merge Request Review Context</h3>
+<p>Run <b>Cliq: Collect Pull/Merge Request Context…</b> from the Tools menu or the merge icon above the chat input, pick an open GitHub pull request or GitLab merge request (the one for your current branch is preselected) or type its number, and Cliq gathers everything a reviewer needs in the background:</p>
+<ul>
+  <li><b>Diffs with wide context</b>, taken from your local git history when the commits are available (missing commits can be fetched automatically), otherwise computed with the IDE diff engine from the hosting API. For GitHub, diffs are taken against the true merge base.</li>
+  <li><b>Full file contents</b>, related tests and dependent files found through the IDE indexes, plus build configuration of the nearest modules and CI workflow files.</li>
+  <li><b>CI status, failed job log tails, commits and review discussions</b> with their file and line positions: GitLab pipelines, GitHub check runs and Actions logs.</li>
+</ul>
+<p>The result is split into chunks that fit your agent's read limits, written to <code>.cliq/reviews/</code> inside the project, pinned to the Context list, and a configurable review prompt is placed in the chat input. Choose whether a ready-made review prompt, one of your own prompt templates, or nothing is placed in the chat input. Add GitHub, GitHub Enterprise and GitLab hosts with their tokens (kept per project unless you enable sharing), and configure proxy bypass, collection limits and extra secret keywords, in <b>Settings | Tools | Cliq | Code Review</b>. The commit-message action now lives in the tool window menu and the Tools menu.</p>
+
 <h3>AI-Drafted Commit Messages</h3>
 <p>Run <b>Cliq: Generate Commit Message</b> from the Tools menu to build a diff of your current changes and drop a ready-to-send prompt into the Cliq chat input. Pick your agent and send it to get a commit message drafted from your actual changes, then copy it into your commit dialog.</p>

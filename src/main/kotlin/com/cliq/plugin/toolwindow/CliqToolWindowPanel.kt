@@ -3,6 +3,7 @@ package com.cliq.plugin.toolwindow
 import com.cliq.plugin.CliqPlugin
 import com.cliq.plugin.agents.CliAgentDefinition
 import com.cliq.plugin.diff.CliqDiffManager
+import com.cliq.plugin.review.ui.CollectReviewContextAction
 import com.cliq.plugin.history.CliqPromptHistory
 import com.cliq.plugin.history.PromptHistoryEntry
 import com.cliq.plugin.settings.CliqSettings
@@ -22,8 +23,6 @@ import com.intellij.ide.DataManager
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.ActionPlaces
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -31,7 +30,7 @@ import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.DataSink
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.UiDataProvider
-import com.intellij.openapi.actionSystem.impl.SimpleDataContext
+import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.components.service
@@ -50,6 +49,7 @@ import com.intellij.openapi.vfs.newvfs.BulkFileListener
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import com.intellij.ui.CollectionListModel
 import com.intellij.ui.SimpleListCellRenderer
+import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBPanel
@@ -93,6 +93,7 @@ class CliqToolWindowPanel(private val project: Project) : JBPanel<CliqToolWindow
     private val pinnedList = JBList(pinnedFilesModel)
 
     private lateinit var promptArea: JBTextArea
+    private lateinit var contextCheckBox: JBCheckBox
     private var clipboardTainted = false
 
     override fun dispose() {
@@ -170,6 +171,31 @@ class CliqToolWindowPanel(private val project: Project) : JBPanel<CliqToolWindow
         add(mainSplitter, BorderLayout.CENTER)
 
         project.service<CliqPendingPrompt>().consume()?.let(::applyPromptText)
+
+        connection.subscribe(CliqContextAttachments.TOPIC, CliqContextAttachments.Listener { consumeAttachment() })
+        consumeAttachment()
+    }
+
+    private fun consumeAttachment() {
+        val attachment = project.service<CliqContextAttachments>().consume() ?: return
+        ApplicationManager.getApplication().invokeLater(
+            { applyAttachment(attachment) },
+            ModalityState.any(),
+            project.disposed,
+        )
+    }
+
+    private fun applyAttachment(attachment: CliqContextAttachments.Attachment) {
+        attachment.replacedDirectory?.let { directory ->
+            val prefix = directory.trimEnd('/') + "/"
+            pinnedFilesModel.items.filter { it.path.startsWith(prefix) }.forEach(pinnedFilesModel::remove)
+        }
+        attachment.files.filter { it.isValid }.forEach(::pinFile)
+        contextCheckBox.isSelected = true
+        attachment.prompt?.let {
+            promptArea.text = it
+            promptArea.requestFocusInWindow()
+        }
     }
 
     private fun dropInvalidFiles(model: CollectionListModel<VirtualFile>) {
@@ -432,10 +458,10 @@ class CliqToolWindowPanel(private val project: Project) : JBPanel<CliqToolWindow
             isOpaque = false
             foreground = CliqTheme.PRIMARY_TEXT
         }
-        val cbContext = com.intellij.ui.components.JBCheckBox("Context", false).apply {
+        val cbContext = JBCheckBox("Context", false).apply {
             isOpaque = false
             foreground = CliqTheme.PRIMARY_TEXT
-        }
+        }.also { contextCheckBox = it }
         val cbRecent = com.intellij.ui.components.JBCheckBox("Recently opened", false).apply {
             isOpaque = false
             foreground = CliqTheme.PRIMARY_TEXT
@@ -485,28 +511,21 @@ class CliqToolWindowPanel(private val project: Project) : JBPanel<CliqToolWindow
             val historyIcon = iconLabel(AllIcons.Vcs.History, "Insert a previously sent prompt")
             val templateIcon = iconLabel(AllIcons.Actions.ListFiles, "Insert prompt template")
             val saveTemplateIcon = iconLabel(AllIcons.Actions.MenuSaveall, "Save current input as prompt template")
-            val commitIcon = iconLabel(AllIcons.Actions.Commit, "Generate commit message from pending changes")
+            val mergeRequestIcon = iconLabel(AllIcons.Vcs.Merge, "Collect pull/merge request context for review")
             val sendIcon = iconLabel(AllIcons.Actions.Execute, "Send prompt")
-            sendIcon.border = JBUI.Borders.empty(0, 4, 8, 12)
 
             val actionIconsRow = JPanel(FlowLayout(FlowLayout.RIGHT, 2, 0)).apply {
                 isOpaque = false
+                border = JBUI.Borders.empty(0, 0, 2, 4)
                 add(historyIcon)
                 add(templateIcon)
                 add(saveTemplateIcon)
-                add(commitIcon)
+                add(mergeRequestIcon)
                 add(sendIcon)
             }
 
             add(scrollPane, BorderLayout.CENTER)
-            add(
-                JPanel(BorderLayout()).apply {
-                    isOpaque = false
-                    background = null
-                    add(actionIconsRow, BorderLayout.SOUTH)
-                },
-                BorderLayout.EAST,
-            )
+            add(actionIconsRow, BorderLayout.SOUTH)
 
             fun sendPrompt() {
                 val userText = promptArea.text.trim()
@@ -551,7 +570,7 @@ class CliqToolWindowPanel(private val project: Project) : JBPanel<CliqToolWindow
             onClick(historyIcon) { showHistoryPopup(historyIcon) }
             onClick(templateIcon) { showTemplatePopup(templateIcon, basePath, getActiveFile) }
             onClick(saveTemplateIcon) { saveCurrentInputAsTemplate() }
-            onClick(commitIcon) { triggerGenerateCommitMessage() }
+            onClick(mergeRequestIcon) { CollectReviewContextAction.start(project) }
             onClick(sendIcon) { sendPrompt() }
 
             promptArea.addKeyListener(object : java.awt.event.KeyAdapter() {
@@ -577,24 +596,6 @@ class CliqToolWindowPanel(private val project: Project) : JBPanel<CliqToolWindow
     private fun insertTextIntoPrompt(text: String) {
         promptArea.replaceSelection(text)
         promptArea.requestFocusInWindow()
-    }
-
-    private fun triggerGenerateCommitMessage() {
-        val action = ActionManager.getInstance().getAction("com.cliq.plugin.GenerateCommitMessage")
-        if (action == null) {
-            NotificationGroupManager.getInstance()
-                .getNotificationGroup(CliqPlugin.NOTIFICATION_GROUP)
-                .createNotification(
-                    "Commit message generation unavailable",
-                    "This IDE does not expose the VCS module Cliq needs to build a diff.",
-                    NotificationType.WARNING,
-                )
-                .notify(project)
-            return
-        }
-        val dataContext = SimpleDataContext.builder().add(CommonDataKeys.PROJECT, project).build()
-        val event = AnActionEvent.createFromAnAction(action, null, ActionPlaces.TOOLWINDOW_CONTENT, dataContext)
-        action.actionPerformed(event)
     }
 
     private fun showHistoryPopup(anchor: JLabel) {

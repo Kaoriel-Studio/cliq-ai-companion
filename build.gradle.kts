@@ -28,7 +28,9 @@ dependencies {
     intellijPlatform {
         create("IC", platformVersion)
         bundledPlugin("org.jetbrains.plugins.terminal")
+        bundledPlugin("Git4Idea")
         bundledModule("intellij.platform.vcs.impl")
+        bundledModule("intellij.platform.vcs.dvcs.impl")
         instrumentationTools()
         testFramework(TestFrameworkType.Platform)
     }
@@ -62,6 +64,7 @@ intellijPlatform {
               <li>"Cliq: Generate Commit Message" builds a diff of your changes and drafts a ready-to-send prompt for your agent</li>
               <li>Chat input now keeps a per-project prompt history you can reinsert or clear</li>
               <li>Prompt templates support {{activeFile}}, {{selection}}, and {{clipboard}} placeholders</li>
+              <li>"Cliq: Collect Pull/Merge Request Context" gathers diffs, files, tests, CI status and discussions of a GitHub pull request or GitLab merge request into token-budgeted chunks and attaches them to the Cliq context with a review prompt</li>
             </ul>
         """.trimIndent())
     }
