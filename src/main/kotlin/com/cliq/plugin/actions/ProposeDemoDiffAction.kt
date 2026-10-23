@@ -40,7 +40,7 @@ class ProposeDemoDiffAction : AnAction() {
 
     private fun notify(project: com.intellij.openapi.project.Project, message: String) {
         NotificationGroupManager.getInstance()
-            .getNotificationGroup("Cliq")
+            .getNotificationGroup(com.cliq.plugin.CliqPlugin.NOTIFICATION_GROUP)
             .createNotification("Cliq demo diff", message, NotificationType.WARNING)
             .notify(project)
     }

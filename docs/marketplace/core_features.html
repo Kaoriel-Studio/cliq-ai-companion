@@ -1,0 +1,45 @@
+<h2>Power Features for AI-Assisted Coding</h2>
+
+<h3>Custom CLI Agents</h3>
+<p>Cliq no longer limits you to a fixed list of agents. Configure any number of CLI agents in <b>Settings | Tools | Cliq</b>, each with its own display name, executable path, arguments, environment variables, and working directory. Add, edit, duplicate, or remove agents at any time — every selector across the plugin updates instantly, no restart required. Environment values are kept in the IDE password safe and handed to the agent through its terminal session's environment, so API keys never reach your shell history.</p>
+
+<h3>Prompt Templates</h3>
+<p>Save your best prompts once and reuse them everywhere. Insert a saved template into the chat input with one click, or save your current input as a new template on the fly. Manage the full list (add, edit, reorder, remove) from a dedicated dialog. Templates support <code>{{activeFile}}</code>, <code>{{selection}}</code>, and <code>{{clipboard}}</code> placeholders that are filled in automatically on insert. Cliq ships with ready-to-use templates: Explain Code, Refactor & Optimize, Write Unit Tests, and Find Bugs.</p>
+
+<h3>Prompt History</h3>
+<p>Every prompt you send is kept in a per-project history. Reopen the history panel from the chat input to reinsert an earlier prompt instead of retyping it, or clear the history when you're done with a task.</p>
+
+<h3>Model Context Protocol (MCP) Support</h3>
+<p>Cliq implements a local <b>MCP Server</b> directly inside your IDE. This allows any AI agent that supports the protocol to:</p>
+<ul>
+  <li>Read your open files and cursor position in real-time.</li>
+  <li>Propose complex, multi-file changes through a unified interface.</li>
+  <li>Interact with IDE tools (like terminal and file management) securely.</li>
+</ul>
+
+<h3>Intelligent @-Context System</h3>
+<p>No more manually copying and pasting code! Cliq uses a specialized <code>@filename</code> token system to feed your files into the agent's context window efficiently. Use the <b>Cliq Tool Window</b> to manage your "pinned" context and recently opened files.</p>
+
+<h3>Safe & Visual Diff Reviews</h3>
+<p>Never let an AI overwrite your work without permission. Cliq's diff viewer provides:</p>
+<ul>
+  <li><b>Side-by-side comparison</b> of current and proposed code.</li>
+  <li><b>Manual editing</b> within the "Proposed" side before acceptance.</li>
+  <li><b>Single-click acceptance</b>: the running agent applies the change, and if no agent session is listening Cliq writes the file itself so nothing is silently lost.</li>
+  <li><b>Project-scoped writes only</b>: paths outside your project, and untrusted projects, are refused.</li>
+</ul>
+
+<h3>Pending Changes Review Queue</h3>
+<p>Large, multi-file refactors no longer mean reviewing diffs one at a time. The <b>Pending Changes</b> panel in the Cliq tool window lists every diff currently open from an agent session, so you can jump into any file, or click <b>Accept All</b> / <b>Reject All</b> to resolve the whole batch at once — with a confirmation step before anything is discarded.</p>
+
+<h3>Pull and Merge Request Review Context</h3>
+<p>Run <b>Cliq: Collect Pull/Merge Request Context…</b> from the Tools menu or the merge icon above the chat input, pick an open GitHub pull request or GitLab merge request (the one for your current branch is preselected) or type its number, and Cliq gathers everything a reviewer needs in the background:</p>
+<ul>
+  <li><b>Diffs with wide context</b>, taken from your local git history when the commits are available (missing commits can be fetched automatically), otherwise computed with the IDE diff engine from the hosting API. For GitHub, diffs are taken against the true merge base.</li>
+  <li><b>Full file contents</b>, related tests and dependent files found through the IDE indexes, plus build configuration of the nearest modules and CI workflow files.</li>
+  <li><b>CI status, failed job log tails, commits and review discussions</b> with their file and line positions: GitLab pipelines, GitHub check runs and Actions logs.</li>
+</ul>
+<p>The result is split into chunks that fit your agent's read limits, written to <code>.cliq/reviews/</code> inside the project, pinned to the Context list, and a configurable review prompt is placed in the chat input. Choose whether a ready-made review prompt, one of your own prompt templates, or nothing is placed in the chat input. Add GitHub, GitHub Enterprise and GitLab hosts with their tokens (kept per project unless you enable sharing), and configure proxy bypass, collection limits and extra secret keywords, in <b>Settings | Tools | Cliq | Code Review</b>. The commit-message action now lives in the tool window menu and the Tools menu.</p>
+
+<h3>AI-Drafted Commit Messages</h3>
+<p>Run <b>Cliq: Generate Commit Message</b> from the Tools menu to build a diff of your current changes and drop a ready-to-send prompt into the Cliq chat input. Pick your agent and send it to get a commit message drafted from your actual changes, then copy it into your commit dialog.</p>

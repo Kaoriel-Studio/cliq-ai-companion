@@ -1,6 +1,6 @@
 package com.cliq.plugin.actions
 
-import com.cliq.plugin.agents.Agent
+import com.cliq.plugin.agents.CliAgentDefinition
 import com.cliq.plugin.settings.CliqSettings
 import com.cliq.plugin.terminal.CliqTerminalLauncher
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -31,15 +31,15 @@ class CliqAgentAction : AnAction() {
 
     private fun showAgentPicker(
         e: AnActionEvent,
-        agents: List<Agent>,
-        onChosen: (Agent) -> Unit,
+        agents: List<CliAgentDefinition>,
+        onChosen: (CliAgentDefinition) -> Unit,
     ) {
         val popup = JBPopupFactory.getInstance()
             .createPopupChooserBuilder(agents)
             .setTitle("Run Cliq Agent")
             .setItemChosenCallback { chosen -> onChosen(chosen) }
             .setRenderer { _, value, _, _, _ ->
-                javax.swing.JLabel("${value.displayName}  —  ${value.command}").apply {
+                javax.swing.JLabel("${value.displayName}  —  ${value.executablePath}").apply {
                     border = javax.swing.BorderFactory.createEmptyBorder(4, 8, 4, 8)
                 }
             }

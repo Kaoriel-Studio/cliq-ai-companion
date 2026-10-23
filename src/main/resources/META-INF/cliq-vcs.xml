@@ -1,0 +1,11 @@
+<idea-plugin>
+    <actions>
+        <action
+            id="com.cliq.plugin.GenerateCommitMessage"
+            class="com.cliq.plugin.vcs.GenerateCommitMessageAction"
+            text="Cliq: Generate Commit Message"
+            description="Build a diff of the current changes and draft a prompt for an AI-generated commit message in the Cliq chat input">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>

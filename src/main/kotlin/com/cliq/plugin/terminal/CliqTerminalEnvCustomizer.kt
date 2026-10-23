@@ -13,6 +13,10 @@ class CliqTerminalEnvCustomizer : LocalTerminalCustomizer() {
         command: Array<String>,
         env: MutableMap<String, String>,
     ): Array<String> {
+        val pending = project.service<CliqTerminalSessions>().consumePendingLaunch() ?: return command
+
+        pending.environment.forEach { (key, value) -> env[key] = value }
+
         val server = project.service<CliqIdeServer>()
         server.port()?.let { env["GEMINI_CLI_IDE_SERVER_PORT"] = it.toString() }
         env["GEMINI_CLI_IDE_AUTH_TOKEN"] = server.authToken()

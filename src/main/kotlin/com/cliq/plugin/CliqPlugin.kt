@@ -5,9 +5,5 @@ object CliqPlugin {
 
     const val NOTIFICATION_GROUP = "Cliq"
 
-    const val DEFAULT_CLAUDE_COMMAND = "claude"
-    const val DEFAULT_GEMINI_COMMAND = "gemini"
-    const val DEFAULT_QWEN_COMMAND = "qwen"
-
     const val TOOL_WINDOW_ID = "Cliq"
 }

@@ -19,6 +19,14 @@ class CliqFileCellRenderer(
     private val sendBtn = JLabel(AllIcons.Actions.Execute)
     private val deleteBtn = JLabel(AllIcons.Actions.GC)
 
+    companion object {
+        const val ACTION_SEND = 0
+        const val ACTION_DELETE = 1
+
+        fun actionZones(): RowActionZones =
+            RowActionZones(listOf(AllIcons.Actions.Execute, AllIcons.Actions.GC))
+    }
+
     init {
         isOpaque = true
         border = JBUI.Borders.empty(4, 8)

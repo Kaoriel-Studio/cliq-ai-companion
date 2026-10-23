@@ -11,6 +11,7 @@ import com.cliq.plugin.settings.CliqSettings
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.logger
@@ -18,9 +19,6 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ModuleRootEvent
 import com.intellij.openapi.roots.ModuleRootListener
 import com.intellij.openapi.roots.ProjectRootManager
-import com.intellij.openapi.util.ThrowableComputable
-import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.openapi.vfs.VfsUtil
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpHandler
 import com.sun.net.httpserver.HttpServer
@@ -36,6 +34,9 @@ import kotlinx.serialization.json.put
 import java.io.File
 import java.io.IOException
 import java.net.InetSocketAddress
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermissions
 import java.security.SecureRandom
 import java.util.Base64
 import java.util.Locale
@@ -43,6 +44,12 @@ import java.util.concurrent.Executors
 
 @Service(Service.Level.PROJECT)
 class CliqIdeServer(private val project: Project) : Disposable {
+
+    private companion object {
+        const val EDT_BRIDGE_TIMEOUT_MS = 10_000L
+        const val OWNER_ONLY_DIRECTORY = "rwx------"
+        const val OWNER_ONLY_FILE = "rw-------"
+    }
 
     private val log = logger<CliqIdeServer>()
     private val authToken: String = generateAuthToken()
@@ -84,6 +91,18 @@ class CliqIdeServer(private val project: Project) : Disposable {
     fun port(): Int? = boundPort
     fun authToken(): String = authToken
     fun workspacePath(): String = workspacePath
+    fun hasActiveSessions(): Boolean = transports.isNotEmpty()
+
+    private suspend fun <T> onEdtAsync(timeoutMillis: Long = EDT_BRIDGE_TIMEOUT_MS, block: () -> T): T? =
+        withTimeoutOrNull(timeoutMillis) {
+            suspendCancellableCoroutine { continuation ->
+                ApplicationManager.getApplication().invokeLater(
+                    { continuation.resumeWith(runCatching(block)) },
+                    ModalityState.any(),
+                    project.disposed,
+                )
+            }
+        }
 
     private inner class McpHandler : HttpHandler {
         override fun handle(exchange: HttpExchange) {
@@ -159,17 +178,19 @@ class CliqIdeServer(private val project: Project) : Disposable {
 
             log.info("Tool openDiff called for $filePath")
 
-            if (CliqSettings.getInstance().autoApplyChanges) {
-                ApplicationManager.getApplication().invokeLater {
-                    project.service<CliqDiffManager>().applyDirectly(filePath, newContent)
-                }
+            val diffManager = project.service<CliqDiffManager>()
+            val rejection = diffManager.validateTarget(filePath)
+            if (rejection != null) {
+                log.warn("Tool openDiff rejected for $filePath: $rejection")
+                CallToolResult(content = listOf(TextContent(rejection)), isError = true)
             } else {
-                ApplicationManager.getApplication().invokeLater {
-                    project.service<CliqDiffManager>().showDiff(filePath, newContent)
+                if (CliqSettings.getInstance().autoApplyChanges) {
+                    diffManager.applyDirectly(filePath, newContent)
+                } else {
+                    diffManager.showDiff(filePath, newContent, CliqDiffManager.Origin.AGENT)
                 }
+                CallToolResult(content = emptyList())
             }
-
-            CallToolResult(content = emptyList())
         }
 
         server.addTool(
@@ -187,7 +208,9 @@ class CliqIdeServer(private val project: Project) : Disposable {
                 ?: throw IllegalArgumentException("filePath is required and must be a string")
             val suppressNotification =
                 (request.arguments["suppressNotification"] as? JsonPrimitive)?.booleanOrNull ?: false
-            val finalContent = project.service<CliqDiffManager>().closeDiff(filePath, suppressNotification)
+            val finalContent = onEdtAsync {
+                project.service<CliqDiffManager>().closeDiff(filePath, suppressNotification)
+            }
 
             @kotlinx.serialization.Serializable
             data class CloseDiffResponse(val content: String?)
@@ -365,20 +388,86 @@ class CliqIdeServer(private val project: Project) : Disposable {
         val ppid = ProcessHandle.current().pid()
         val record = DiscoveryRecord(port, authToken, ppid, ideInfo, workspacePath)
         val json = McpJson.codec.encodeToString(DiscoveryRecord.serializer(), record)
-        val dir = File(System.getProperty("java.io.tmpdir"), "gemini/ide").apply { mkdirs() }
+        val dir = prepareDiscoveryDirectory() ?: return
         val pids = mutableSetOf(ppid).apply {
             ProcessHandle.of(ppid).ifPresent { h -> h.parent().ifPresent { add(it.pid()) } }
         }
         for (pid in pids) {
-            val file = File(dir, "gemini-ide-server-$pid-$port.json")
-            file.writeText(json)
-            file.setReadable(true, true)
-            file.setWritable(true, true)
+            val file = File(dir.toFile(), "gemini-ide-server-$pid-$port.json")
+            val written = runCatching { writeSecretFile(file.toPath(), json) }
+            if (written.isFailure) {
+                log.warn("Failed to write discovery file ${file.absolutePath}", written.exceptionOrNull())
+                continue
+            }
             file.deleteOnExit()
             discoveryFiles.add(file)
         }
-        log.info("Wrote ${discoveryFiles.size} discovery file(s) to ${dir.absolutePath}")
+        log.info("Wrote ${discoveryFiles.size} discovery file(s) to ${dir.toAbsolutePath()}")
     }
+
+    private fun prepareDiscoveryDirectory(): java.nio.file.Path? {
+        val root = java.nio.file.Path.of(System.getProperty("java.io.tmpdir"))
+        val geminiDir = root.resolve("gemini")
+        val ideDir = geminiDir.resolve("ide")
+
+        for (candidate in listOf(geminiDir, ideDir)) {
+            if (Files.isSymbolicLink(candidate)) {
+                log.warn("Refusing to use discovery directory: $candidate is a symbolic link")
+                return null
+            }
+            if (Files.exists(candidate) && !isOwnedByCurrentUser(candidate)) {
+                log.warn("Refusing to use discovery directory: $candidate is owned by another user")
+                return null
+            }
+        }
+
+        return runCatching {
+            if (supportsPosixPermissions(root)) {
+                val attribute = PosixFilePermissions.asFileAttribute(
+                    PosixFilePermissions.fromString(OWNER_ONLY_DIRECTORY)
+                )
+                if (!Files.exists(geminiDir)) Files.createDirectory(geminiDir, attribute)
+                if (!Files.exists(ideDir)) Files.createDirectory(ideDir, attribute)
+                Files.setPosixFilePermissions(ideDir, PosixFilePermissions.fromString(OWNER_ONLY_DIRECTORY))
+            } else {
+                Files.createDirectories(ideDir)
+            }
+            ideDir
+        }.getOrElse {
+            log.warn("Failed to prepare discovery directory $ideDir", it)
+            null
+        }
+    }
+
+    private fun isOwnedByCurrentUser(path: java.nio.file.Path): Boolean {
+        val currentUser = System.getProperty("user.name") ?: return true
+        val owner = runCatching { Files.getOwner(path)?.name }.getOrNull() ?: return true
+        return owner == currentUser || owner.substringAfterLast('\\') == currentUser
+    }
+
+    private fun writeSecretFile(path: java.nio.file.Path, content: String) {
+        Files.deleteIfExists(path)
+        if (supportsPosixPermissions(path.parent)) {
+            Files.createFile(
+                path,
+                PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(OWNER_ONLY_FILE)),
+            )
+        } else {
+            Files.createFile(path)
+            path.toFile().apply {
+                setReadable(false, false)
+                setWritable(false, false)
+                setReadable(true, true)
+                setWritable(true, true)
+            }
+        }
+        Files.newBufferedWriter(path, StandardCharsets.UTF_8).use { it.write(content) }
+    }
+
+    private fun supportsPosixPermissions(path: java.nio.file.Path?): Boolean =
+        path != null && runCatching {
+            path.fileSystem.supportedFileAttributeViews().contains("posix")
+        }.getOrDefault(false)
 
     override fun dispose() {
         transports.keys.toList().forEach { cleanupSession(it) }

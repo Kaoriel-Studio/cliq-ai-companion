@@ -4,8 +4,6 @@ import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
 import java.awt.Color
 import java.awt.Font
-import javax.swing.border.Border
-import javax.swing.BorderFactory
 
 object CliqTheme {
     val PRIMARY: JBColor = JBColor(Color(0x01, 0xB4, 0x3C), Color(0x2B, 0xD4, 0x6A))

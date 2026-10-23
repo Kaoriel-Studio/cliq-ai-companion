@@ -1,0 +1,25 @@
+<h2>Welcome to Cliq!</h2>
+<p>Cliq is your graphical bridge between powerful AI agents (like Claude and Gemini CLI) and your IDE. Here is how to get up and running in 3 minutes:</p>
+
+<h3>1. Configure your CLI agents</h3>
+<p>Go to <b>Settings | Tools | Cliq</b>. Add as many CLI agents as you like, each with its own command, arguments, environment variables, and working directory. A few defaults are pre-configured to get you started:</p>
+<ul>
+  <li><b>Claude:</b> <code>claude</code></li>
+  <li><b>Gemini:</b> <code>gemini</code></li>
+  <li><b>Qwen:</b> <code>qwen</code></li>
+</ul>
+
+<h3>2. Launch an Agent</h3>
+<p>Use the <b>Run Cliq Agent</b> action in the main toolbar or press <code>Ctrl+Alt+Q</code>. This opens a new session in your IDE terminal with full Cliq integration. Prompts and <code>@</code>-context are only ever typed into terminal tabs Cliq started this way, so start an agent before sending anything.</p>
+
+<h3>3. Share Context</h3>
+<p>Select files in the <b>Project View</b>, right-click, and choose <b>Send Files as @-Context</b>. Your agent will immediately "see" these files and be able to reason about them.</p>
+
+<h3>4. Reuse Prompt Templates and History</h3>
+<p>In the Cliq tool window, click the template icon next to the chat input to insert a saved prompt (with automatic <code>{{activeFile}}</code>, <code>{{selection}}</code>, and <code>{{clipboard}}</code> placeholders), or save your current input as a new template. Use the history icon to reinsert any prompt you've sent before.</p>
+
+<h3>5. Review Changes</h3>
+<p>When the agent proposes a code change, Cliq will open a native <b>Diff Review</b> tab. For larger, multi-file changes, use the <b>Pending Changes</b> panel in the tool window to Accept All or Reject All at once instead of reviewing files one by one. Cliq only ever writes inside your project, and only when the project is trusted.</p>
+
+<h3>6. Draft a Commit Message</h3>
+<p>Once you're happy with the changes, run <b>Cliq: Generate Commit Message</b> from the Tools menu. Cliq builds a diff of your current changes and drops a ready-to-send prompt into the chat input for your agent to turn into a commit message.</p>

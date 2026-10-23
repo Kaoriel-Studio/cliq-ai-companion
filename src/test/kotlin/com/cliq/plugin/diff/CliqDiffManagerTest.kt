@@ -1,47 +1,46 @@
 package com.cliq.plugin.diff
 
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.openapi.components.service
-import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.testFramework.PlatformTestUtil
+import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import java.io.File
-import java.nio.charset.StandardCharsets
 
 class CliqDiffManagerTest : BasePlatformTestCase() {
 
-    fun testApplyDirectlyWritesFile() {
-        val tempFile = File.createTempFile("cliq_diff_test", ".txt")
-        val path = tempFile.absolutePath
+    fun testValidateTargetRejectsPathOutsideProject() {
         val manager = project.service<CliqDiffManager>()
-        val newContent = "updated content"
-        
-        manager.applyDirectly(path, newContent)
-        
-        PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
-        
-        val refreshed = LocalFileSystem.getInstance().refreshAndFindFileByPath(path)
-        assertNotNull(refreshed)
-        val actual = String(refreshed!!.contentsToByteArray(), StandardCharsets.UTF_8)
-        assertEquals(newContent, actual)
-        tempFile.delete()
+        val outside = File(System.getProperty("java.io.tmpdir"), "cliq_outside_${System.currentTimeMillis()}.txt")
+
+        val rejection = manager.validateTarget(outside.absolutePath)
+
+        assertNotNull("Writing outside the project must be refused", rejection)
+        assertTrue(rejection!!.contains("outside the project") || rejection.contains("not trusted"))
     }
 
-    fun testApplyDirectlyCreatesNewFile() {
+    fun testValidateTargetRejectsParentTraversal() {
         val manager = project.service<CliqDiffManager>()
-        val tempDir = System.getProperty("java.io.tmpdir")
-        val newPath = "${tempDir}/cliq_new_file_${System.currentTimeMillis()}.txt"
-        val content = "brand new content"
-        
-        manager.applyDirectly(newPath, content)
-        
-        PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
-        
-        val file = LocalFileSystem.getInstance().refreshAndFindFileByPath(newPath)
+        val basePath = project.basePath ?: return
+
+        val rejection = manager.validateTarget("$basePath/../escaped.txt")
+
+        assertNotNull("Parent traversal outside the project must be refused", rejection)
+    }
+
+    fun testApplyDirectlyDoesNotWriteOutsideProject() {
+        val manager = project.service<CliqDiffManager>()
+        val outside = File(System.getProperty("java.io.tmpdir"), "cliq_blocked_${System.currentTimeMillis()}.txt")
+
         try {
-            assertNotNull(file)
-            assertEquals(content, String(file!!.contentsToByteArray(), StandardCharsets.UTF_8))
+            manager.applyDirectly(outside.absolutePath, "should never be written")
+            PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
+
+            assertFalse("Cliq must not create files outside the project", outside.exists())
         } finally {
-            File(newPath).delete()
+            outside.delete()
         }
+    }
+
+    fun testNoPendingReviewsInitially() {
+        assertEmpty(project.service<CliqDiffManager>().pendingFilePaths())
     }
 }

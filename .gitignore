@@ -48,14 +48,10 @@ ai_context/
 # Reference projects
 reference/
 
-# Temp binaries or executable files without extensions
-A
-Compilation
-Get
-Run
-Task
-
 # AI specific documentation (remove from here if they are public docs)
 DocGeminiCli.md
 GEMINI.md
+HANDOFF.md
 .kotlin
+CLAUDE.md
+CHANGELOG.md
