@@ -53,9 +53,11 @@ intellijPlatform {
     pluginConfiguration {
         ideaVersion {
             sinceBuild.set("243")
-            untilBuild.set("252.*")
+            untilBuild.set(provider { null })
         }
         changeNotes.set("""
+            1.0.1: Cliq installs again on IntelliJ-based IDEs 2025.3 and newer (the upper compatibility bound is removed, 2024.3+).<br>
+            <br>
             This update adds a multi-file review queue, AI-drafted commit messages, prompt history, and smarter templates.<br>
             <br>
             Highlights:<br>
