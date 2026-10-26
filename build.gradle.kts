@@ -53,7 +53,7 @@ intellijPlatform {
     pluginConfiguration {
         ideaVersion {
             sinceBuild.set("243")
-            untilBuild.set("252.*")
+            untilBuild.set(provider { null })
         }
         changeNotes.set("""
             This update adds a multi-file review queue, AI-drafted commit messages, prompt history, and smarter templates.<br>
